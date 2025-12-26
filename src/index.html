@@ -1,1 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🕵️‍♂️ Impostor - Categorías</title>
+    <style>
+        :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --accent: #fbbf24; --danger: #ef4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; text-align: center; margin: 0; padding: 20px; touch-action: manipulation; }
+        .container { max-width: 500px; margin: auto; background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .big-name { font-size: 3rem; font-weight: 800; color: var(--primary); margin: 20px 0; text-transform: uppercase; }
+        button { background: var(--primary); border: none; color: white; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 1.1rem; width: 100%; margin-top: 10px; }
+        select { width: 100%; padding: 15px; border-radius: 12px; background: #0f172a; color: white; border: 1px solid #334155; font-size: 1.1rem; margin: 10px 0; }
+        .hidden { display: none; }
+        .hold-zone { background: #0f172a; border: 3px dashed #334155; padding: 50px 20px; border-radius: 15px; margin: 20px 0; cursor: pointer; user-select: none; -webkit-user-select: none; }
+        .hold-zone.active { border-color: var(--accent); }
+        .word-secret { font-size: 2.2rem; font-weight: 900; color: var(--accent); display: none; }
+        .player-tag { background: #334155; padding: 8px 12px; border-radius: 8px; display: inline-block; margin: 5px; }
+    </style>
+</head>
+<body>
 
+<div class="container">
+    <div id="setup-players">
+        <h1>🕵️‍♂️ EL IMPOSTOR</h1>
+        <input type="text" id="playerName" placeholder="Nombre del jugador" style="width:90%; padding:15px; border-radius:10px; border:1px solid #334155; background:#0f172a; color:white;">
+        <button onclick="addPlayer()">Agregar Jugador</button>
+        <div id="list-container" style="margin: 20px 0;"></div>
+        <button id="toCategoryBtn" class="hidden" style="background: var(--accent); color: #000;" onclick="showCategorySetup()">Siguiente →</button>
+    </div>
+
+    <div id="setup-category" class="hidden">
+        <h2>Elegir Categoría</h2>
+        <select id="categorySelect">
+            <option value="futbol">⚽ Fútbol </option>
+            <option value="cine">🎬 Cine </option>
+            <option value="comida">🍔 Comida </option>
+            <option value="aleatorio">🎲 ¡Sorpresa! (Mezclado)</option>
+        </select>
+        <button onclick="startGame()">¡Comenzar Ronda!</button>
+    </div>
+
+    <div id="turn-screen" class="hidden">
+        <p>Turno de:</p>
+        <div class="big-name" id="displayPlayerName">---</div>
+        <div class="hold-zone" id="holdZone">
+            <span id="holdPrompt">MANTÉN PRESIONADO</span>
+            <span class="word-secret" id="secretDisplay">PALABRA</span>
+        </div>
+        <button id="nextBtn" class="hidden" onclick="nextTurn()">Siguiente Jugador</button>
+    </div>
+
+    <div id="game-on" class="hidden">
+        <h2 style="color: var(--accent)">¡A DEBATIR!</h2>
+        <p>El tema fue: <b id="finalCategory"></b></p>
+        <button onclick="newRound()">Jugar otra vez</button>
+    </div>
+</div>
+
+<script>
+    // --- BASE DE DATOS DE PALABRAS ---
+    const categorias = {
+        futbol: ["MESSI", "MARADONA", "REAL MADRID", "COPA DEL MUNDO", "OFFSIDE", "PENAL", "MBAPPÉ", "BOCA JUNIORS", "RIVER PLATE", "ESTADIO"],
+        cine: ["TITANIC", "AVENGERS", "BATMAN", "HOLLYWOOD", "OSCAR", "NETFLIX", "STAR WARS", "HARRY POTTER", "DIRECTOR", "PALOMITAS"],
+        comida: ["PIZZA", "HAMBURGUESA", "SUSHI", "ASADO", "PASTA", "HELADO", "TACOS", "CHOCOLATE", "ENSALADA", "MILANESA"]
+    };
+
+    let playerNames = [];
+    let gameData = [];
+    let currentPlayer = 0;
+
+    function addPlayer() {
+        const input = document.getElementById('playerName');
+        const name = input.value.trim();
+        if (name && !playerNames.includes(name)) {
+            playerNames.push(name);
+            document.getElementById('list-container').innerHTML += `<span class="player-tag">${name}</span>`;
+            input.value = "";
+            if (playerNames.length >= 3) document.getElementById('toCategoryBtn').classList.remove('hidden');
+        }
+    }
+
+    function showCategorySetup() {
+        document.getElementById('setup-players').classList.add('hidden');
+        document.getElementById('setup-category').classList.remove('hidden');
+    }
+
+    function startGame() {
+        let catKey = document.getElementById('categorySelect').value;
+        if (catKey === "aleatorio") {
+            const keys = Object.keys(categorias);
+            catKey = keys[Math.floor(Math.random() * keys.length)];
+        }
+        
+        const lista = categorias[catKey];
+        const palabraElegida = lista[Math.floor(Math.random() * lista.length)];
+        
+        document.getElementById('finalCategory').innerText = catKey.toUpperCase();
+
+        currentPlayer = 0;
+        const impostorIndex = Math.floor(Math.random() * playerNames.length);
+        gameData = playerNames.map((name, index) => ({
+            name: name,
+            word: (index === impostorIndex) ? "IMPOSTOR" : palabraElegida
+        })).sort(() => Math.random() - 0.5);
+
+        document.getElementById('setup-category').classList.add('hidden');
+        document.getElementById('turn-screen').classList.remove('hidden');
+        updateTurn();
+    }
+
+    function updateTurn() {
+        const p = gameData[currentPlayer];
+        document.getElementById('displayPlayerName').innerText = p.name;
+        document.getElementById('secretDisplay').innerText = p.word;
+        document.getElementById('secretDisplay').style.display = "none";
+        document.getElementById('holdPrompt').style.display = "block";
+        document.getElementById('nextBtn').classList.add('hidden');
+        document.getElementById('secretDisplay').style.color = (p.word === "IMPOSTOR") ? "var(--danger)" : "var(--accent)";
+    }
+
+    const holdZone = document.getElementById('holdZone');
+    const startReveal = (e) => {
+        e.preventDefault();
+        document.getElementById('secretDisplay').style.display = "block";
+        document.getElementById('holdPrompt').style.display = "none";
+        holdZone.classList.add('active');
+        document.getElementById('nextBtn').classList.remove('hidden');
+    };
+    const endReveal = () => {
+        document.getElementById('secretDisplay').style.display = "none";
+        document.getElementById('holdPrompt').style.display = "block";
+        holdZone.classList.remove('active');
+    };
+
+    holdZone.addEventListener('mousedown', startReveal);
+    holdZone.addEventListener('touchstart', startReveal);
+    window.addEventListener('mouseup', endReveal);
+    window.addEventListener('touchend', endReveal);
+
+    function nextTurn() {
+        currentPlayer++;
+        if (currentPlayer < gameData.length) updateTurn();
+        else {
+            document.getElementById('turn-screen').classList.add('hidden');
+            document.getElementById('game-on').classList.remove('hidden');
+        }
+    }
+
+    function newRound() {
+        document.getElementById('game-on').classList.add('hidden');
+        document.getElementById('setup-category').classList.remove('hidden');
+    }
+</script>
+</body>
+</html>
